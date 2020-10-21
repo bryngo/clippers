@@ -4,13 +4,16 @@ const util = require('util');
 const exec  = util.promisify(require("child_process").exec);
 
 const config = require('../config');
+const utils = require('./utils');
 
 const CLIPS_BASE_API_URL = 'https://api.twitch.tv/kraken/clips/top';
 const CLIPS_LIMIT = 5;
 const CLIPS_PERIOD = 'month';
 const CLIPS_TRENDING = false;
 
-const CLIPS_BASE_URL = 'https://clips.twitch.tv/'
+const TWITCH_CLIPS_BASE_URL = 'https://clips.twitch.tv/'
+
+const FRAMERATE_60 = "60/1";
 
 const merge = {
     mergeVideo: async function (req, res, next) {
@@ -20,13 +23,14 @@ const merge = {
         let clipSlugs = await getClipSlugs(streamerUsername)
         console.log(clipSlugs.toString());
 
-        // TODO: Don't use streamer username bc this can cahnge
+        // TODO: Don't use streamer username bc this can change
         await downloadSluggedURLs(clipSlugs, streamerUsername);
 
         let mergedVideo = fluent_ffmpeg();
 
         clipSlugs.forEach((clipSlug) => {
             let clipPath = "./public/clips/" + streamerUsername + "/" + clipSlug + ".mp4";
+            console.log("Mering " + clipPath);
 
            mergedVideo.addInput(clipPath).
                on('error', function (err) {
@@ -37,13 +41,20 @@ const merge = {
                })
         });
 
+        console.log("Done adding input")
         let mergedClipPath = "./public/mergedClips/" + streamerUsername + "/" + streamerUsername + ".mp4";
+
+        // this take forever to run for some reason??
+        // TODO: Look into just running the CLI version of this command
         mergedVideo.mergeToFile(mergedClipPath, './public/tmp')
             .on('error', function(err) {
                 console.log('Error ' + err.message);
             })
             .on('end', function() {
                 console.log('Finished!');
+            })
+            .on('progress', function(progress) {
+                console.log('Processing: ' + progress.percent + '% done');
             });
     }
 };
@@ -55,7 +66,7 @@ const download = {
         let clipSlugs = await getClipSlugs(streamerUsername)
         console.log(clipSlugs.toString());
 
-        // TODO: Don't use streamer username bc this can cahnge
+        // TODO: Don't use streamer username bc this can change
         downloadSluggedURLs(clipSlugs, streamerUsername);
     }
 };
@@ -94,36 +105,33 @@ const getClipSlugs = async function (streamer) {
 
 const downloadSluggedURLs = async function(clipSlugs, streamerUsername) {
 
-    // download all the clips in parallel
-    // await Promise.all(clipSlugs.map(async(clipSlug) => {
-    clipSlugs.forEach((clipSlug) => {
-        let clipUrl = CLIPS_BASE_URL + clipSlug;
+     await Promise.all(clipSlugs.map(async (clipSlug) => {
+        let clipUrl = TWITCH_CLIPS_BASE_URL + clipSlug;
 
         console.log("Downloading " + clipUrl);
-         exec("youtube-dl -f best " +
+        await exec("youtube-dl -f best " +
             "--output ./public/clips/" + streamerUsername + "/" +
             clipSlug + ".mp4 " +
-            clipUrl, (error, stdout, stderr) => {
-            if (error) {
-                console.log(`error: ${error.message}`);
-                return;
-            }
-            if (stderr) {
-                console.log(`stderr: ${stderr}`);
-                return;
-            }
-            console.log(`stdout: ${stdout}`);
-        });
+            clipUrl);
+    })).then(() => {
+        console.log("Finished downloading clips.")
     });
 }
 
 const getAPIUrl = function(streamer) {
-
     return CLIPS_BASE_API_URL + '?' +
         "channel=" + streamer +
         "&period=" + CLIPS_PERIOD +
         "&trending=" + CLIPS_TRENDING +
         "&limit=" + CLIPS_LIMIT;
+}
+
+// return true if the video framerate is 60fps
+const is60FPS = async function (clipPath) {
+    return fluent_ffmpeg.ffprobe(clipPath, function (err, metadata) {
+        let clipFramerate = metadata['streams'][0]['r_frame_rate'];
+        return clipFramerate === FRAMERATE_60;
+    });
 }
 
 module.exports.mergeVideo = merge.mergeVideo;
