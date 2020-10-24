@@ -2,6 +2,7 @@ const axios = require('axios').default;
 const fluent_ffmpeg = require("fluent-ffmpeg");
 const util = require('util');
 const exec  = util.promisify(require("child_process").exec);
+const fs = require('fs');
 
 const config = require('../config');
 const utils = require('./utils');
@@ -26,36 +27,18 @@ const merge = {
         // TODO: Don't use streamer username bc this can change
         await downloadSluggedURLs(clipSlugs, streamerUsername);
 
-        let mergedVideo = fluent_ffmpeg();
+        // create the directory if it doesn't exist
+        let dir = "./public/mergedClips/" + streamerUsername
+        if (!fs.existsSync(dir)){
+            fs.mkdirSync(dir);
+        }
 
-        clipSlugs.forEach((clipSlug) => {
-            let clipPath = "./public/clips/" + streamerUsername + "/" + clipSlug + ".mp4";
-            console.log("Mering " + clipPath);
+        await exec("ffmpeg -f concat -safe 0 -i " +
+            "./public/clips/" + streamerUsername + "/recipe.txt " +
+            "-c copy ./public/mergedClips/" + streamerUsername + "/" + streamerUsername + ".mp4");
 
-           mergedVideo.addInput(clipPath).
-               on('error', function (err) {
-                   console.log('Error ' + err.message);
-               })
-               .on('end', function () {
-                   console.log('Finished!');
-               })
-        });
-
-        console.log("Done adding input")
-        let mergedClipPath = "./public/mergedClips/" + streamerUsername + "/" + streamerUsername + ".mp4";
-
-        // this take forever to run for some reason??
-        // TODO: Look into just running the CLI version of this command
-        mergedVideo.mergeToFile(mergedClipPath, './public/tmp')
-            .on('error', function(err) {
-                console.log('Error ' + err.message);
-            })
-            .on('end', function() {
-                console.log('Finished!');
-            })
-            .on('progress', function(progress) {
-                console.log('Processing: ' + progress.percent + '% done');
-            });
+        console.log("Done merging clips for " + streamerUsername)
+        console.log("Output at /mergedClips/" + streamerUsername + ".mp4")
     }
 };
 
@@ -105,16 +88,33 @@ const getClipSlugs = async function (streamer) {
 
 const downloadSluggedURLs = async function(clipSlugs, streamerUsername) {
 
+    // create the directory if it doesn't exist
+    let dir = "./public/clips/" + streamerUsername
+    if (!fs.existsSync(dir)){
+        fs.mkdirSync(dir);
+    }
+
      await Promise.all(clipSlugs.map(async (clipSlug) => {
         let clipUrl = TWITCH_CLIPS_BASE_URL + clipSlug;
 
         console.log("Downloading " + clipUrl);
         await exec("youtube-dl -f best " +
-            "--output ./public/clips/" + streamerUsername + "/" +
+            "--output " + dir + "/" +
             clipSlug + ".mp4 " +
             clipUrl);
     })).then(() => {
+        // after downloading, write them to the recipe file for merging
         console.log("Finished downloading clips.")
+
+         var file = fs.createWriteStream('./public/clips/' + streamerUsername + "/recipe.txt");
+         file.on('error', function(err) {
+             console.log("[ERROR] Cannot write recipe" + err);
+         });
+         clipSlugs.forEach(function(v) {
+             file.write('file ./' + v + '.mp4\n');
+         });
+         file.end();
+
     });
 }
 
