@@ -3,7 +3,8 @@
 
 ## TODO
 - Get a domain   
-
+- CI/CD
+- Better file management. (My DO droplet only has 25GB)
 
 ## Known Issues
 - Merging clips of different framerates / resolutions does not produce expected outputs
