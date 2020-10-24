@@ -18,9 +18,13 @@ const FRAMERATE_60 = "60/1";
 
 const merge = {
     mergeVideo: async function (req, res, next) {
-        res.send("merged videos for " + req.params.streamer)
 
         let streamerUsername = req.params.streamer;
+
+        let outputRoute = "/mergedClips/" + streamerUsername + "/" + streamerUsername + ".mp4"
+        res.send("Your video should be available at  " + outputRoute)
+
+
         let clipSlugs = await getClipSlugs(streamerUsername)
         console.log(clipSlugs.toString());
 
@@ -38,7 +42,7 @@ const merge = {
             "-c copy ./public/mergedClips/" + streamerUsername + "/" + streamerUsername + ".mp4");
 
         console.log("Done merging clips for " + streamerUsername)
-        console.log("Output at /mergedClips/" + streamerUsername + ".mp4")
+        console.log("Output at " + outputRoute)
     }
 };
 
