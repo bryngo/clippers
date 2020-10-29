@@ -22,7 +22,7 @@ const merge = {
         let streamerUsername = req.params.streamer;
 
         let outputRoute = "/mergedClips/" + streamerUsername + "/" + streamerUsername + ".mp4"
-        res.send("Your video should be available at  " + outputRoute)
+        res.send("Your video is now generating. It will be available at " + outputRoute)
 
 
         let clipSlugs = await getClipSlugs(streamerUsername)
@@ -37,9 +37,11 @@ const merge = {
             fs.mkdirSync(dir);
         }
 
-        await exec("ffmpeg -f concat -safe 0 -i " +
+        // https://stackoverflow.com/questions/53021266/non-monotonous-dts-in-output-stream-previous-current-changing-to-this-may-result
+        await exec("ffmpeg -y -safe 0 -f concat -segment_time_metadata 1 -i " +
             "./public/clips/" + streamerUsername + "/recipe.txt " +
-            "-c copy ./public/mergedClips/" + streamerUsername + "/" + streamerUsername + ".mp4");
+            "-vf select=concatdec_select -af aselect=concatdec_select,aresample=async=1 " +
+            "./public/mergedClips/" + streamerUsername + "/" + streamerUsername + ".mp4");
 
         console.log("Done merging clips for " + streamerUsername)
         console.log("Output at " + outputRoute)

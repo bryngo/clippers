@@ -1,5 +1,5 @@
 file ./SpunkyLittleReindeerYee.mp4
 file ./GeniusCrypticDogeTooSpicy.mp4
 file ./AntsyResourcefulAniseUnSane.mp4
-file ./AntediluvianCrypticGiraffeDancingBaby.mp4
-file ./HealthyThoughtfulAirGuitarItsBoshyTime.mp4
+file ./PoorSuspiciousPheasantBlargNaut.mp4
+file ./GloriousSpeedyKoupreyDerp.mp4
